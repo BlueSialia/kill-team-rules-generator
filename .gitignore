@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+
+# Build and coverage output
+dist/
+build/
+out/
+coverage/
+.nyc_output/
+*.tsbuildinfo
+
+# Package manager logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Nix and direnv
+.direnv/
+/result
+/result-*
+
+# Editors and operating systems
+.zed/
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Environment files
+.env
+.env.*
+!.env.example
