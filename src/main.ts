@@ -1,32 +1,37 @@
-import './style.css';
+import './styles/base.css';
+import './styles/practical-a4.css';
 
-import { icon } from '@fortawesome/fontawesome-svg-core';
-import {
-  faArrowsLeftRight,
-  faBolt,
-  faBullseye,
-  faBurst,
-  faCrosshairs,
-  faExplosion,
-  faGun,
-  faHandFist,
-  faHeartPulse,
-  faShieldHalved,
-} from '@fortawesome/free-solid-svg-icons';
+import './styles/operatives-datacards.css';
+
+import aplIcon from './assets/icons/apl.svg';
+import attacksIcon from './assets/icons/attacks.svg';
+import damageIcon from './assets/icons/damage.svg';
+import meleeIcon from './assets/icons/melee.svg';
+import movementIcon from './assets/icons/movement.svg';
+import rangedIcon from './assets/icons/ranged.svg';
+import saveIcon from './assets/icons/save.svg';
+import skillIcon from './assets/icons/skill.svg';
+import woundsIcon from './assets/icons/wounds.svg';
 
 import {
   createDefaultKillTeamDocument,
+  defaultTheme,
   equipmentSchema,
   LOCAL_STORAGE_KEY,
   operativeSchema,
   ploySchema,
   ruleEntrySchema,
+  simpleRuleEntrySchema,
+  tacOpSchema,
   type Equipment,
   type KillTeamDocument,
   type Operative,
   type OperativeRuleEntry,
+  type PreviewLayout,
   type Ploy,
   type RuleEntry,
+  type SimpleRuleEntry,
+  type TacOp,
   type Weapon,
   weaponSchema,
 } from './domain/kill-team';
@@ -66,6 +71,12 @@ const themeFields = [
   ['accent', 'Accent color'],
   ['alternativeAccent', 'Alternative accent color'],
 ] as const;
+
+const layoutOptions: readonly (readonly [PreviewLayout, string])[] = [
+  ['practical-a4', 'Practical A4'],
+
+  ['operatives-datacards', 'Operative datacards only'],
+];
 
 const getStorage = (): Storage | undefined => {
   try {
@@ -127,6 +138,27 @@ const escapeHtml = (value: string): string =>
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;');
+
+const escapeRegExp = (value: string): string =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const previewValue = (value: string): string => {
+  const keyword = killTeamDocument.identity.teamKeyword.trim();
+  if (!keyword) {
+    return escapeHtml(value);
+  }
+
+  const keywordPattern = new RegExp(escapeRegExp(keyword), 'gi');
+  let rendered = '';
+  let lastIndex = 0;
+  for (const match of value.matchAll(keywordPattern)) {
+    const index = match.index ?? lastIndex;
+    rendered += escapeHtml(value.slice(lastIndex, index));
+    rendered += `<strong class="team-keyword">${escapeHtml(match[0])}</strong>`;
+    lastIndex = index + match[0].length;
+  }
+  return rendered + escapeHtml(value.slice(lastIndex));
+};
 
 const valueAt = (path: string): string => {
   let current: unknown = killTeamDocument;
@@ -208,6 +240,15 @@ const emptyItem = (path: AnyListPath): unknown => {
   if (path === 'equipment') {
     return equipmentSchema.parse({});
   }
+  if (path === 'factionRules.tacOps') {
+    return tacOpSchema.parse({});
+  }
+  if (
+    path === 'factionRules.chapterTactics' ||
+    path.endsWith('.equipmentOptions')
+  ) {
+    return simpleRuleEntrySchema.parse({});
+  }
   return ruleEntrySchema.parse({});
 };
 
@@ -250,10 +291,10 @@ const field = (
 const colorField = (
   key: (typeof themeFields)[number][0],
   label: string,
-): string =>
-  field(label, `presentation.theme.${key}`, {
-    placeholder: '#30475e or another CSS color',
-  });
+): string => {
+  const path = `presentation.theme.${key}`;
+  return `<label class="field color-field"><span>${label}</span><span class="color-control"><span class="color-swatch" data-color-swatch="${path}" aria-hidden="true"></span><input data-path="${path}" type="text" value="${escapeHtml(valueAt(path))}" placeholder="#30475e or another CSS color" /></span></label>`;
+};
 
 const selectField = (
   label: string,
@@ -271,17 +312,15 @@ const weaponTypeOptions = [
 ] as const;
 
 const previewIcons = {
-  movement: faArrowsLeftRight,
-  apl: faBolt,
-  wounds: faHeartPulse,
-  save: faShieldHalved,
-  attacks: faBurst,
-  skill: faBullseye,
-  damage: faExplosion,
-  melee: faHandFist,
-  ranged: faGun,
-  arrows: faArrowsLeftRight,
-  crosshairs: faCrosshairs,
+  movement: movementIcon,
+  apl: aplIcon,
+  wounds: woundsIcon,
+  save: saveIcon,
+  attacks: attacksIcon,
+  skill: skillIcon,
+  damage: damageIcon,
+  melee: meleeIcon,
+  ranged: rangedIcon,
 };
 
 const previewIcon = (
@@ -289,8 +328,7 @@ const previewIcon = (
   label: string,
 ): string => {
   const definition = previewIcons[kind];
-  const svg = icon(definition, { classes: ['preview-icon'] }).html.join('');
-  return `<span class="preview-icon-wrapper" role="img" aria-label="${label}" title="${label}">${svg}</span>`;
+  return `<span class="preview-icon-wrapper" role="img" aria-label="${label}" title="${label}" style="--preview-icon-image: url(&quot;${escapeHtml(definition)}&quot;)"></span>`;
 };
 
 const weaponTypeIcon = (type: string): string => {
@@ -311,7 +349,7 @@ const previewStat = (
   value: string,
 ): string =>
   hasText(value)
-    ? `<div class="preview-stat" title="${label}">${previewIcon(kind, label)}<span>${escapeHtml(value)}</span></div>`
+    ? `<div class="preview-stat" title="${label}">${previewIcon(kind, label)}<span>${previewValue(value)}</span></div>`
     : '';
 
 const getArrayValue = (path: string): string[] => {
@@ -335,7 +373,6 @@ const renderRuleEntry = (
   path: AnyListPath,
   index: number,
   title: string,
-  operativeRule = false,
 ): string => `
   <details class="list-item" data-drop-path="${path}" data-drop-index="${index}" open>
     <summary class="list-item-header">
@@ -346,8 +383,45 @@ const renderRuleEntry = (
       <div class="field-grid">
         ${field('Name', `${path}.${index}.name`)}
         ${field('Cost', `${path}.${index}.cost`)}
-        ${operativeRule ? field('Timing / phase', `${path}.${index}.timing`) : field('Keywords', `${path}.${index}.keywords`, { array: true })}
+        ${field('Timing / phase', `${path}.${index}.timing`)}
         ${field('Restrictions', `${path}.${index}.restrictions`)}
+        ${field('Rules text', `${path}.${index}.rulesText`, { multiline: true, fullWidth: true })}
+      </div>
+    </div>
+  </details>
+`;
+
+const renderSimpleRuleEntry = (
+  path: AnyListPath,
+  index: number,
+  title: string,
+): string => `
+  <details class="list-item" data-drop-path="${path}" data-drop-index="${index}" open>
+    <summary class="list-item-header">
+      <div class="list-item-title">${renderDragHandle(path, index, title)}<strong>${escapeHtml(itemName(path, index, `New ${title.toLowerCase()}`))}</strong></div>
+      ${renderItemActions(path, index)}
+    </summary>
+    <div class="item-content">
+      <div class="field-grid">
+        ${field('Name', `${path}.${index}.name`)}
+        ${field('Rules text', `${path}.${index}.rulesText`, { multiline: true, fullWidth: true })}
+      </div>
+    </div>
+  </details>
+`;
+
+const renderTacOp = (path: AnyListPath, index: number): string => `
+  <details class="list-item" data-drop-path="${path}" data-drop-index="${index}" open>
+    <summary class="list-item-header">
+      <div class="list-item-title">${renderDragHandle(path, index, 'Tac Op')}<strong>${escapeHtml(itemName(path, index, 'New Tac Op'))}</strong></div>
+      ${renderItemActions(path, index)}
+    </summary>
+    <div class="item-content">
+      <div class="field-grid">
+        ${field('Name', `${path}.${index}.name`)}
+        ${field('Archetype', `${path}.${index}.archetype`)}
+        ${field('Reveal condition', `${path}.${index}.revealCondition`, { multiline: true })}
+        ${field('Scoring condition', `${path}.${index}.scoringCondition`, { multiline: true })}
         ${field('Rules text', `${path}.${index}.rulesText`, { multiline: true, fullWidth: true })}
       </div>
     </div>
@@ -381,7 +455,6 @@ const renderEquipment = (path: AnyListPath, index: number): string => `
     <div class="item-content">
       <div class="field-grid">
         ${field('Name', `${path}.${index}.name`)}
-        ${field('Restrictions', `${path}.${index}.restrictions`)}
         ${field('Effect / rules text', `${path}.${index}.rulesText`, { multiline: true, fullWidth: true })}
       </div>
     </div>
@@ -406,10 +479,8 @@ const renderList = (
   return `
     <div class="list-section" data-list-container="${path}">
       <div class="subsection-heading">
-        <div>
-          <h3>${title}</h3>
-          <p>${description}</p>
-        </div>
+        <h3>${title}</h3>
+        <p>${description}</p>
         <button class="button button-subtle" data-action="add-item" data-list-path="${path}" type="button">Add ${title.toLowerCase()}</button>
       </div>
       ${
@@ -480,7 +551,8 @@ const renderNestedList = (
   return `
     <div class="nested-list" data-list-container="${path}">
       <div class="subsection-heading compact">
-        <div><h4>${title}</h4><p>${description}</p></div>
+        <h4>${title}</h4>
+        <p>${description}</p>
         <button class="button button-subtle" data-action="add-item" data-list-path="${path}" type="button">Add</button>
       </div>
       ${
@@ -499,7 +571,9 @@ const renderNestedRules = (
   operativeRule = false,
 ): string =>
   renderNestedList(path, title, description, (listPath, index) =>
-    renderRuleEntry(listPath, index, title, operativeRule),
+    operativeRule
+      ? renderRuleEntry(listPath, index, title)
+      : renderSimpleRuleEntry(listPath, index, title),
   );
 
 const hasText = (value: string): boolean => value.trim().length > 0;
@@ -508,8 +582,17 @@ const hasRuleEntryContent = (entry: RuleEntry): boolean =>
   hasText(entry.name) ||
   hasText(entry.cost) ||
   hasText(entry.timing) ||
-  entry.keywords.some(hasText) ||
   hasText(entry.restrictions) ||
+  hasText(entry.rulesText);
+
+const hasSimpleRuleContent = (entry: SimpleRuleEntry): boolean =>
+  hasText(entry.name) || hasText(entry.rulesText);
+
+const hasTacOpContent = (entry: TacOp): boolean =>
+  hasText(entry.name) ||
+  hasText(entry.archetype) ||
+  hasText(entry.revealCondition) ||
+  hasText(entry.scoringCondition) ||
   hasText(entry.rulesText);
 
 const hasOperativeRuleContent = (entry: OperativeRuleEntry): boolean =>
@@ -540,7 +623,7 @@ const hasOperativeContent = (operative: Operative): boolean =>
   operative.weapons.some(hasWeaponContent) ||
   operative.abilities.some(hasOperativeRuleContent) ||
   operative.uniqueActions.some(hasOperativeRuleContent) ||
-  operative.equipmentOptions.some(hasRuleEntryContent);
+  operative.equipmentOptions.some(hasSimpleRuleContent);
 
 const hasPloyContent = (ploy: Ploy): boolean =>
   hasText(ploy.name) ||
@@ -550,13 +633,11 @@ const hasPloyContent = (ploy: Ploy): boolean =>
   hasText(ploy.rulesText);
 
 const hasEquipmentContent = (equipment: Equipment): boolean =>
-  hasText(equipment.name) ||
-  hasText(equipment.restrictions) ||
-  hasText(equipment.rulesText);
+  hasText(equipment.name) || hasText(equipment.rulesText);
 
 const previewText = (label: string, value: string): string =>
   hasText(value)
-    ? `<div class="preview-field"><dt>${label}</dt><dd>${escapeHtml(value)}</dd></div>`
+    ? `<div class="preview-field"><dt>${label}</dt><dd>${previewValue(value)}</dd></div>`
     : '';
 
 const previewRuleEntry = (
@@ -572,17 +653,50 @@ const previewRuleEntry = (
   return `
     <article class="preview-card">
       <div class="preview-item-heading">
-        ${hasText(entry.name) ? `<h3>${escapeHtml(entry.name)}</h3>` : ''}
+        ${hasText(entry.name) ? `<h3>${previewValue(entry.name)}</h3>` : ''}
         <div class="preview-cost-column">
-          ${hasText(entry.cost) ? `<span class="preview-cost">${escapeHtml(entry.cost)}</span>` : ''}
-          ${!operativeRule && hasText(entry.restrictions) ? `<p class="preview-restrictions">${escapeHtml(entry.restrictions)}</p>` : ''}
+          ${hasText(entry.cost) ? `<span class="preview-cost">${previewValue(entry.cost)}</span>` : ''}
+          ${!operativeRule && hasText(entry.restrictions) ? `<p class="preview-restrictions">${previewValue(entry.restrictions)}</p>` : ''}
         </div>
       </div>
-      ${operativeRule ? `<div class="preview-ploy-meta"><p class="preview-timing">${escapeHtml(entry.timing)}</p><p class="preview-restrictions">${escapeHtml(entry.restrictions)}</p></div>` : ''}
-      ${hasText(entry.rulesText) ? `<p class="preview-text">${escapeHtml(entry.rulesText)}</p>` : ''}
-      ${!operativeRule && 'keywords' in entry && entry.keywords.some(hasText) ? `<p class="preview-keywords">${escapeHtml(entry.keywords.filter(hasText).join(' · '))}</p>` : ''}
+      ${operativeRule ? `<div class="preview-ploy-meta"><p class="preview-timing">${previewValue(entry.timing)}</p><p class="preview-restrictions">${previewValue(entry.restrictions)}</p></div>` : ''}
+      ${hasText(entry.rulesText) ? `<p class="preview-text">${previewValue(entry.rulesText)}</p>` : ''}
     </article>
   `;
+};
+
+const previewSimpleRuleEntry = (entry: SimpleRuleEntry): string =>
+  hasSimpleRuleContent(entry)
+    ? `<article class="preview-card">${hasText(entry.name) ? `<h3>${previewValue(entry.name)}</h3>` : ''}${hasText(entry.rulesText) ? `<p class="preview-text">${previewValue(entry.rulesText)}</p>` : ''}</article>`
+    : '';
+
+const previewTacOp = (entry: TacOp): string =>
+  hasTacOpContent(entry)
+    ? `<article class="preview-card">
+        ${hasText(entry.name) ? `<h3>${previewValue(entry.name)}</h3>` : ''}
+        <dl>${previewText('Archetype', entry.archetype)}${previewText('Reveal condition', entry.revealCondition)}${previewText('Scoring condition', entry.scoringCondition)}</dl>
+        ${hasText(entry.rulesText) ? `<p class="preview-text">${previewValue(entry.rulesText)}</p>` : ''}
+      </article>`
+    : '';
+
+const previewSimpleRuleList = (
+  title: string,
+  entries: SimpleRuleEntry[],
+): string => {
+  const content = entries
+    .filter(hasSimpleRuleContent)
+    .map(previewSimpleRuleEntry)
+    .join('');
+  return content
+    ? `<div class="preview-subsection"><h3>${title}</h3>${content}</div>`
+    : '';
+};
+
+const previewTacOpList = (entries: TacOp[]): string => {
+  const content = entries.filter(hasTacOpContent).map(previewTacOp).join('');
+  return content
+    ? `<div class="preview-subsection"><h3>Tac Ops</h3>${content}</div>`
+    : '';
 };
 
 const previewWeapon = (weapon: Weapon): string => {
@@ -592,7 +706,7 @@ const previewWeapon = (weapon: Weapon): string => {
   return `
     <article class="preview-weapon">
       <div class="preview-item-heading">
-        ${hasText(weapon.name) ? `<h4>${escapeHtml(weapon.name)}</h4>` : ''}
+        ${hasText(weapon.name) ? `<h4>${previewValue(weapon.name)}</h4>` : ''}
         ${weaponTypeIcon(weapon.weaponType)}
       </div>
       <div class="weapon-detail-row">
@@ -601,7 +715,7 @@ const previewWeapon = (weapon: Weapon): string => {
           ${previewStat('skill', 'Skill', weapon.skill)}
           ${weapon.damage || weapon.criticalDamage ? previewStat('damage', 'Damage / critical damage', `${weapon.damage || '—'} / ${weapon.criticalDamage || '—'}`) : ''}
         </div>
-        ${hasText(weapon.rulesText) ? `<p class="preview-text weapon-rules">${escapeHtml(weapon.rulesText)}</p>` : ''}
+        ${hasText(weapon.rulesText) ? `<p class="preview-text weapon-rules">${previewValue(weapon.rulesText)}</p>` : ''}
       </div>
     </article>
   `;
@@ -632,16 +746,16 @@ const previewPloyList = (title: string, ploys: Ploy[]): string => {
       (ploy) => `
         <article class="preview-card">
           <div class="preview-item-heading">
-            ${hasText(ploy.name) ? `<h3>${escapeHtml(ploy.name)}</h3>` : ''}
+            ${hasText(ploy.name) ? `<h3>${previewValue(ploy.name)}</h3>` : ''}
             <div class="preview-cost-column">
-              ${hasText(ploy.cost) ? `<span class="preview-cost">${escapeHtml(ploy.cost)}</span>` : ''}
+              ${hasText(ploy.cost) ? `<span class="preview-cost">${previewValue(ploy.cost)}</span>` : ''}
             </div>
           </div>
           <div class="preview-ploy-meta">
-            ${hasText(ploy.timing) ? `<p class="preview-timing">${escapeHtml(ploy.timing)}</p>` : '<span></span>'}
-            ${hasText(ploy.restrictions) ? `<p class="preview-restrictions">${escapeHtml(ploy.restrictions)}</p>` : '<span></span>'}
+            ${hasText(ploy.timing) ? `<p class="preview-timing">${previewValue(ploy.timing)}</p>` : '<span></span>'}
+            ${hasText(ploy.restrictions) ? `<p class="preview-restrictions">${previewValue(ploy.restrictions)}</p>` : '<span></span>'}
           </div>
-          ${hasText(ploy.rulesText) ? `<p class="preview-text">${escapeHtml(ploy.rulesText)}</p>` : ''}
+          ${hasText(ploy.rulesText) ? `<p class="preview-text">${previewValue(ploy.rulesText)}</p>` : ''}
         </article>
       `,
     )
@@ -658,15 +772,14 @@ const previewOperatives = (operatives: Operative[]): string => {
       (operative) => `
         <article class="preview-operative">
           <div class="preview-operative-top">
-            <div class="preview-portrait-column">
-              ${operative.portrait ? `<img class="preview-portrait" src="${escapeHtml(operative.portrait)}" alt="Portrait of ${escapeHtml(operative.name || 'operative')}" />` : ''}
-              ${operative.keywords.some(hasText) ? `<p class="preview-keywords portrait-keywords">${escapeHtml(operative.keywords.filter(hasText).join(' · '))}</p>` : ''}
+            <div class="operative-portrait-column">
+              ${operative.portrait ? `<img class="operative-portrait" src="${escapeHtml(operative.portrait)}" alt="Portrait of ${escapeHtml(operative.name || 'operative')}" />` : ''}
+
             </div>
-            <div class="preview-operative-info">
-              <div class="preview-operative-heading">
-                <div class="preview-operative-identity">
-                  ${hasText(operative.name) ? `<h3>${escapeHtml(operative.name)}</h3>` : ''}
-                  ${hasText(operative.role) ? `<p class="preview-subtitle">${escapeHtml(operative.role)}</p>` : ''}
+            <div class="operative-heading">
+                <div>
+                  ${hasText(operative.name) ? `<h3>${previewValue(operative.name)}</h3>` : ''}
+                  ${hasText(operative.role) ? `<p class="preview-subtitle">${previewValue(operative.role)}</p>` : ''}
                 </div>
                 <div class="stat-grid operative-stat-grid">
                   ${previewStat('apl', 'Action Point Limit', operative.actionPointLimit)}
@@ -674,13 +787,13 @@ const previewOperatives = (operatives: Operative[]): string => {
                   ${previewStat('save', 'Save', operative.save)}
                   ${previewStat('wounds', 'Wounds', operative.wounds)}
                 </div>
+                ${operative.weapons.some(hasWeaponContent) ? `<div class="operative-weapons"><div class="weapon-table-header" aria-hidden="true"><span>Weapon</span><span>Attacks</span><span>Skill</span><span>Damage</span><span>Rules</span></div>${operative.weapons.filter(hasWeaponContent).map(previewWeapon).join('')}</div>` : ''}
               </div>
-              ${operative.weapons.some(hasWeaponContent) ? `<div class="operative-weapons">${operative.weapons.filter(hasWeaponContent).map(previewWeapon).join('')}</div>` : ''}
-            </div>
           </div>
           ${previewRuleList('Abilities', operative.abilities, true)}
           ${previewRuleList('Unique Actions', operative.uniqueActions, true)}
-          ${previewRuleList('Equipment options', operative.equipmentOptions)}
+          ${operative.keywords.some(hasText) ? `<p class="preview-keywords operative-keywords">${previewValue(operative.keywords.filter(hasText).join(', '))}</p>` : ''}
+          ${previewSimpleRuleList('Equipment options', operative.equipmentOptions)}
         </article>
       `,
     )
@@ -696,9 +809,8 @@ const previewEquipment = (equipment: Equipment[]): string => {
     .map(
       (item) => `
         <article class="preview-card">
-          ${hasText(item.name) ? `<h3>${escapeHtml(item.name)}</h3>` : ''}
-          <dl>${previewText('Restrictions', item.restrictions)}</dl>
-          ${hasText(item.rulesText) ? `<p class="preview-text">${escapeHtml(item.rulesText)}</p>` : ''}
+          ${hasText(item.name) ? `<h3>${previewValue(item.name)}</h3>` : ''}
+          ${hasText(item.rulesText) ? `<p class="preview-text">${previewValue(item.rulesText)}</p>` : ''}
         </article>
       `,
     )
@@ -716,25 +828,28 @@ const renderPreview = (): void => {
 
   const theme = killTeamDocument.presentation.theme;
   const coverContent =
-    hasText(killTeamDocument.identity.name) || killTeamDocument.identity.symbol
+    hasText(killTeamDocument.identity.name) ||
+    hasText(killTeamDocument.identity.teamKeyword) ||
+    killTeamDocument.identity.symbol
       ? `<section class="preview-cover">
         ${killTeamDocument.identity.symbol ? '<div class="preview-symbol" role="img" aria-label="Kill Team symbol"></div>' : ''}
-        ${hasText(killTeamDocument.identity.name) ? `<h1>${escapeHtml(killTeamDocument.identity.name)}</h1>` : ''}
+        ${hasText(killTeamDocument.identity.name) ? `<h1>${previewValue(killTeamDocument.identity.name)}</h1>` : ''}
+        ${hasText(killTeamDocument.identity.teamKeyword) ? `<p class="preview-team-keyword">${previewValue(killTeamDocument.identity.teamKeyword)}</p>` : ''}
       </section>`
       : '';
   const narrativeContent = hasText(killTeamDocument.narrative)
-    ? `<section class="preview-section preview-narrative"><h2>Narrative / background</h2><p class="preview-text">${escapeHtml(killTeamDocument.narrative)}</p></section>`
+    ? `<section class="preview-section preview-narrative"><h2>Narrative / background</h2><p class="preview-text">${previewValue(killTeamDocument.narrative)}</p></section>`
     : '';
   const compositionContent = hasText(killTeamDocument.teamComposition)
-    ? `<section class="preview-section"><h2>Team composition</h2><p class="preview-text">${escapeHtml(killTeamDocument.teamComposition)}</p></section>`
+    ? `<section class="preview-section"><h2>Team composition</h2><p class="preview-text">${previewValue(killTeamDocument.teamComposition)}</p></section>`
     : '';
   const factionContent = [
     previewRuleList('Faction abilities', killTeamDocument.factionRules.rules),
-    previewRuleList(
+    previewSimpleRuleList(
       'Chapter tactics',
       killTeamDocument.factionRules.chapterTactics,
     ),
-    previewRuleList('Tac Ops', killTeamDocument.factionRules.tacOps),
+    previewTacOpList(killTeamDocument.factionRules.tacOps),
   ].join('');
   const factionSection = factionContent
     ? `<section class="preview-section"><h2>Faction rules</h2>${factionContent}</section>`
@@ -752,7 +867,10 @@ const renderPreview = (): void => {
       ? `<section class="preview-section"><h2>Ploys</h2>${strategyContent}${firefightContent}</section>`
       : '';
 
-  paper.innerHTML = `${coverContent}${narrativeContent}${compositionContent}${previewOperatives(killTeamDocument.operatives)}${factionSection}${ploySection}${previewEquipment(killTeamDocument.equipment)}<footer class="print-footer">Page <span class="page-number"></span></footer>`;
+  const practicalContent = `${coverContent}${narrativeContent}${compositionContent}${previewOperatives(killTeamDocument.operatives)}${factionSection}${ploySection}${previewEquipment(killTeamDocument.equipment)}`;
+  const layout = killTeamDocument.presentation.layout;
+  paper.dataset.layout = layout;
+  paper.innerHTML = `${layout === 'operatives-datacards' ? `<div class="datacards-layout">${previewOperatives(killTeamDocument.operatives)}</div>` : practicalContent}<footer class="print-footer">Page <span class="page-number"></span></footer>`;
   const primaryColor = theme.primary || '#30475e';
   app.style.setProperty('--team-primary', primaryColor);
   app.style.setProperty(
@@ -784,14 +902,17 @@ const renderSectionContent = (id: string): string => {
   switch (id) {
     case 'identity':
       return `
-        <div class="field-grid">
+        <div class="field-grid identity-grid">
           ${field('Kill Team name', 'identity.name', { placeholder: 'For example, The Ashen Guard' })}
+          ${field('Team keyword', 'identity.teamKeyword', { placeholder: 'For example, ASHEN GUARD' })}
           <label class="field"><span>Team symbol (SVG)</span><input data-symbol-upload type="file" accept=".svg,image/svg+xml" /></label>
         </div>
         <p class="field-help">The symbol must be an SVG and is stored in this document as image data; it is never uploaded.</p>
         ${killTeamDocument.identity.symbol ? `<div class="symbol-preview"><div class="symbol-preview-image" role="img" aria-label="Uploaded Kill Team symbol"></div><button class="button button-subtle" data-action="remove-symbol" type="button">Remove symbol</button></div>` : ''}
-        <div class="subsection-heading"><div><h3>Theme colors</h3><p>These colors are used by the future printable preview.</p></div></div>
+        <div class="subsection-heading"><div><h3>Theme colors</h3><p>These colors are used by the printable preview.</p></div></div>
         <div class="field-grid color-grid">${themeFields.map(([key, label]) => colorField(key, label)).join('')}</div>
+        <div class="subsection-heading"><div><h3>Preview layout</h3><p>Choose how the generated document is arranged.</p></div></div>
+        ${selectField('Layout', 'presentation.layout', layoutOptions)}
       `;
     case 'narrative':
       return field('Narrative / background', 'narrative', {
@@ -811,7 +932,7 @@ const renderSectionContent = (id: string): string => {
         renderOperative,
       );
     case 'faction-rules':
-      return `${renderList('factionRules.rules', 'Faction abilities', 'Add the general rules of the faction.', (path, index) => renderRuleEntry(path, index, 'Faction ability'))}${renderList('factionRules.chapterTactics', 'Chapter tactics', 'Add chapter tactics inside the faction rules.', (path, index) => renderRuleEntry(path, index, 'Chapter tactic'))}${renderList('factionRules.tacOps', 'Tac Ops', 'Add the faction’s Tac Ops.', (path, index) => renderRuleEntry(path, index, 'Tac Op'))}`;
+      return `${renderList('factionRules.rules', 'Faction abilities', 'Add the general rules of the faction.', (path, index) => renderRuleEntry(path, index, 'Faction ability'))}${renderList('factionRules.chapterTactics', 'Chapter tactics', 'Add chapter tactics inside the faction rules.', (path, index) => renderSimpleRuleEntry(path, index, 'Chapter tactic'))}${renderList('factionRules.tacOps', 'Tac Ops', 'Add the faction’s Tac Ops.', renderTacOp)}`;
     case 'strategy-ploys':
       return renderList(
         'strategyPloys',
@@ -874,6 +995,7 @@ const render = (): void => {
   `;
   bindEvents();
   renderPreview();
+  renderColorSwatches();
 };
 
 const renderPreservingViewport = (
@@ -919,6 +1041,14 @@ const setSaveStatus = (message: string): void => {
   if (status) {
     status.textContent = message;
   }
+};
+
+const renderColorSwatches = (): void => {
+  app.querySelectorAll<HTMLElement>('[data-color-swatch]').forEach((swatch) => {
+    const path = swatch.dataset.colorSwatch ?? '';
+    const key = path.split('.').at(-1) as keyof typeof defaultTheme;
+    swatch.style.backgroundColor = valueAt(path) || defaultTheme[key];
+  });
 };
 
 const moveItem = (
@@ -967,6 +1097,7 @@ const updateField = (path: string, value: string, isArray: boolean): void => {
 
   scheduleSave();
   renderPreview();
+  renderColorSwatches();
 };
 
 const addItem = (path: AnyListPath): void => {

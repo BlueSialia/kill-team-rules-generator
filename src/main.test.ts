@@ -44,18 +44,26 @@ describe('editor application', () => {
     expect(document.querySelectorAll('.preview-section')).toHaveLength(0);
   });
 
-  it('updates the live preview when narrative text changes', async () => {
+  it('highlights the team keyword wherever it appears in the preview', async () => {
     await loadApplication();
 
+    input('[data-path="identity.teamKeyword"]', 'ASHEN GUARD');
     input(
       '[data-path="narrative"]',
-      'The Ashen Guard patrol the ruined frontier.',
+      'The Ashen Guard patrol the ruined frontier. ASHEN GUARD never retreats.',
     );
 
+    const highlighted = document.querySelectorAll('.team-keyword');
+    expect(highlighted).toHaveLength(3);
+    expect(
+      Array.from(highlighted).every((element) => element.tagName === 'STRONG'),
+    ).toBe(true);
     expect(previewText()).toContain(
       'The Ashen Guard patrol the ruined frontier.',
     );
-    expect(previewText()).toContain('Narrative / background');
+    expect(
+      document.querySelector('[data-path="identity.teamKeyword"]'),
+    ).not.toBeNull();
   });
 
   it('creates an operative with a nested weapon and renders both', async () => {
@@ -91,7 +99,7 @@ describe('editor application', () => {
     portraitInput.dispatchEvent(new Event('change', { bubbles: true }));
     await new Promise((resolve) => window.setTimeout(resolve, 500));
 
-    expect(document.querySelector('.preview-portrait')).not.toBeNull();
+    expect(document.querySelector('.operative-portrait')).not.toBeNull();
     expect(
       document.querySelector('.operative-item')?.hasAttribute('draggable'),
     ).toBe(false);
@@ -100,7 +108,7 @@ describe('editor application', () => {
     ).not.toBeNull();
   });
 
-  it('collapses named items and renders rule cost and field order', async () => {
+  it('collapses named items and renders faction rule fields in order', async () => {
     await loadApplication();
 
     click('[data-action="add-item"][data-list-path="factionRules.rules"]');
@@ -111,7 +119,6 @@ describe('editor application', () => {
       '[data-path="factionRules.rules.0.rulesText"]',
       'Reroll one attack die.',
     );
-    input('[data-path="factionRules.rules.0.keywords"]', 'Faction, Tactical');
 
     const item = document.querySelector<HTMLDetailsElement>(
       '[data-drop-path="factionRules.rules"]',
@@ -126,9 +133,7 @@ describe('editor application', () => {
     expect(previewText().indexOf('Leader only')).toBeLessThan(
       previewText().indexOf('Reroll one attack die.'),
     );
-    expect(previewText().indexOf('Reroll one attack die.')).toBeLessThan(
-      previewText().indexOf('Faction · Tactical'),
-    );
+    expect(previewText()).not.toContain('Faction · Tactical');
 
     item?.querySelector<HTMLElement>('summary')?.click();
     expect(item?.open).toBe(false);
@@ -211,6 +216,34 @@ describe('editor application', () => {
     click('[data-action="remove-symbol"]');
 
     expect(document.querySelector('.symbol-preview')).toBeNull();
+  });
+
+  it('shows live color swatches and switches preview layouts', async () => {
+    await loadApplication();
+
+    expect(document.querySelectorAll('[data-color-swatch]')).toHaveLength(8);
+    input('[data-path="presentation.theme.primary"]', '#123456');
+    expect(
+      document.querySelector<HTMLElement>(
+        '[data-color-swatch="presentation.theme.primary"]',
+      )?.style.backgroundColor,
+    ).not.toBe('');
+
+    const layout = document.querySelector<HTMLSelectElement>(
+      '[data-path="presentation.layout"]',
+    );
+    if (!layout) {
+      throw new Error('Preview layout selector not found.');
+    }
+    layout.value = 'operatives-datacards';
+    layout.dispatchEvent(new Event('change', { bubbles: true }));
+
+    expect(
+      document
+        .querySelector('[data-preview-paper]')
+        ?.getAttribute('data-layout'),
+    ).toBe('operatives-datacards');
+    expect(document.querySelector('.datacards-layout')).not.toBeNull();
   });
 
   it('persists theme edits through the application autosave', async () => {

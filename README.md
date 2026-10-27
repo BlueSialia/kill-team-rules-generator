@@ -81,7 +81,6 @@ npm run preview
 | [TypeScript](https://www.typescriptlang.org/) | Application language and type checking |
 | [Vite](https://vite.dev/) | Development server and production build |
 | [Biome](https://biomejs.dev/) | Formatting and linting |
-| [Font Awesome](https://fontawesome.com/) | Preview icons |
 | [Zod](https://zod.dev/) | Runtime document schema validation |
 | [Vitest](https://vitest.dev/) | Automated tests |
 

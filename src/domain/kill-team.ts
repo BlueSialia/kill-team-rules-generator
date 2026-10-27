@@ -47,15 +47,22 @@ export const identitySchema = z
   .object({
     name: text(),
     symbol: svgDataUrl,
+    teamKeyword: text(),
   })
   .default({
     name: '',
     symbol: '',
+    teamKeyword: '',
   });
+
+export const previewLayoutSchema = z.enum([
+  'practical-a4',
+  'operatives-datacards',
+]);
 
 export const presentationSchema = z
   .object({
-    layout: z.literal('practical-a4').default('practical-a4'),
+    layout: previewLayoutSchema.default('practical-a4'),
     theme: themeSchema,
   })
   .default({
@@ -77,7 +84,6 @@ export const ruleEntrySchema = z
     name: text(),
     cost: text(),
     timing: text(),
-    keywords: textList(),
     restrictions: text(),
     rulesText: text(),
   })
@@ -85,24 +91,35 @@ export const ruleEntrySchema = z
     name: '',
     cost: '',
     timing: '',
-    keywords: [],
     restrictions: '',
     rulesText: '',
   });
 
-export const operativeRuleEntrySchema = z
+export const operativeRuleEntrySchema = ruleEntrySchema;
+
+export const simpleRuleEntrySchema = z
   .object({
     name: text(),
-    cost: text(),
-    timing: text(),
-    restrictions: text(),
     rulesText: text(),
   })
   .default({
     name: '',
-    cost: '',
-    timing: '',
-    restrictions: '',
+    rulesText: '',
+  });
+
+export const tacOpSchema = z
+  .object({
+    name: text(),
+    archetype: text(),
+    revealCondition: text(),
+    scoringCondition: text(),
+    rulesText: text(),
+  })
+  .default({
+    name: '',
+    archetype: '',
+    revealCondition: '',
+    scoringCondition: '',
     rulesText: '',
   });
 
@@ -139,7 +156,7 @@ export const operativeSchema = z
     weapons: z.array(weaponSchema).default([]),
     abilities: z.array(operativeRuleEntrySchema).default([]),
     uniqueActions: z.array(operativeRuleEntrySchema).default([]),
-    equipmentOptions: z.array(ruleEntrySchema).default([]),
+    equipmentOptions: z.array(simpleRuleEntrySchema).default([]),
   })
   .default({
     name: '',
@@ -159,8 +176,8 @@ export const operativeSchema = z
 export const factionRulesSchema = z
   .object({
     rules: z.array(ruleEntrySchema).default([]),
-    chapterTactics: z.array(ruleEntrySchema).default([]),
-    tacOps: z.array(ruleEntrySchema).default([]),
+    chapterTactics: z.array(simpleRuleEntrySchema).default([]),
+    tacOps: z.array(tacOpSchema).default([]),
   })
   .default({
     rules: [],
@@ -184,17 +201,7 @@ export const ploySchema = z
     rulesText: '',
   });
 
-export const equipmentSchema = z
-  .object({
-    name: text(),
-    restrictions: text(),
-    rulesText: text(),
-  })
-  .default({
-    name: '',
-    restrictions: '',
-    rulesText: '',
-  });
+export const equipmentSchema = simpleRuleEntrySchema;
 
 export const killTeamDocumentSchema = z.object({
   schemaVersion: z.literal(CURRENT_SCHEMA_VERSION),
@@ -212,9 +219,12 @@ export const killTeamDocumentSchema = z.object({
 
 export type Theme = z.infer<typeof themeSchema>;
 export type Identity = z.infer<typeof identitySchema>;
+export type PreviewLayout = z.infer<typeof previewLayoutSchema>;
 export type Presentation = z.infer<typeof presentationSchema>;
 export type RuleEntry = z.infer<typeof ruleEntrySchema>;
 export type OperativeRuleEntry = z.infer<typeof operativeRuleEntrySchema>;
+export type SimpleRuleEntry = z.infer<typeof simpleRuleEntrySchema>;
+export type TacOp = z.infer<typeof tacOpSchema>;
 export type Weapon = z.infer<typeof weaponSchema>;
 export type Operative = z.infer<typeof operativeSchema>;
 export type FactionRules = z.infer<typeof factionRulesSchema>;
@@ -239,6 +249,7 @@ export const createDefaultKillTeamDocument = (): KillTeamDocument => ({
   identity: {
     name: '',
     symbol: '',
+    teamKeyword: '',
   },
   narrative: '',
   teamComposition: '',

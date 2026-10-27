@@ -1,0 +1,196 @@
+.paper-preview[data-layout="operatives-datacards"] {
+  padding: 8mm;
+  background: var(--preview-light-background);
+}
+
+.paper-preview[data-layout="operatives-datacards"] .datacards-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 5mm;
+}
+
+.paper-preview[data-layout="operatives-datacards"]
+  .datacards-layout
+  .preview-section {
+  display: contents;
+}
+
+.paper-preview[data-layout="operatives-datacards"]
+  .datacards-layout
+  .preview-section
+  > h2 {
+  display: none;
+}
+
+.paper-preview[data-layout="operatives-datacards"]
+  .datacards-layout
+  .preview-operative {
+  min-height: 0;
+  margin: 0;
+  border: 1.5px solid var(--preview-primary);
+  border-top: 0.35rem solid var(--preview-primary);
+  border-radius: 0.15rem;
+  padding: 3.5mm;
+  background: var(--preview-light-background);
+}
+
+.paper-preview[data-layout="operatives-datacards"]
+  .datacards-layout
+  .preview-operative-top {
+  grid-template-columns: 22mm minmax(0, 1fr);
+  gap: 3mm;
+}
+
+.paper-preview[data-layout="operatives-datacards"]
+  .datacards-layout
+  .operative-portrait-column {
+  width: 22mm;
+}
+
+.paper-preview[data-layout="operatives-datacards"]
+  .datacards-layout
+  .operative-heading {
+  position: relative;
+  grid-template-columns: 1fr;
+  gap: 1mm;
+  padding-bottom: 2mm;
+}
+
+.paper-preview[data-layout="operatives-datacards"]
+  .datacards-layout
+  .operative-heading
+  > div:first-child
+  h3 {
+  font-size: 0.9rem;
+}
+
+.paper-preview[data-layout="operatives-datacards"]
+  .datacards-layout
+  .operative-stat-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.1rem;
+  font-size: 0.72rem;
+}
+
+.paper-preview[data-layout="operatives-datacards"]
+  .datacards-layout
+  .preview-icon-wrapper {
+  width: 0.85rem;
+  height: 0.85rem;
+}
+
+.paper-preview[data-layout="operatives-datacards"]
+  .datacards-layout
+  :is(.preview-subsection, .operative-weapons) {
+  margin-top: 2mm;
+}
+
+.paper-preview[data-layout="operatives-datacards"]
+  .datacards-layout
+  .operative-weapons {
+  position: relative;
+  left: -25mm;
+  width: calc(100% + 25mm);
+}
+
+.paper-preview[data-layout="operatives-datacards"]
+  .datacards-layout
+  :is(.preview-card, .preview-weapon) {
+  margin-top: 1mm;
+  border-color: color-mix(in srgb, var(--preview-secondary) 35%, transparent);
+  border-radius: 0;
+  padding: 1.5mm 2mm;
+  font-size: 0.7rem;
+}
+
+.paper-preview[data-layout="operatives-datacards"]
+  .datacards-layout
+  .operative-weapons
+  .preview-weapon {
+  display: grid;
+  grid-template-columns: 4mm minmax(18mm, 1fr) 25mm minmax(0, 1.5fr);
+  align-items: center;
+  gap: 1mm;
+  min-width: 0;
+
+  .preview-item-heading,
+  .weapon-detail-row {
+    display: contents;
+  }
+
+  h4 {
+    grid-column: 2;
+    grid-row: 1;
+    min-width: 0;
+    font-size: 0.72rem;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .weapon-type-icon {
+    grid-column: 1;
+    grid-row: 1;
+
+    :where(.preview-icon-wrapper) {
+      width: 0.75rem;
+      height: 0.75rem;
+    }
+  }
+
+  .stat-grid {
+    grid-column: 3;
+    grid-row: 1;
+    display: flex;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 0.5mm;
+    margin: 0;
+    font-size: 0.65rem;
+    white-space: nowrap;
+  }
+
+  .weapon-rules {
+    grid-column: 4;
+    grid-row: 1;
+    align-self: center;
+    top: 0;
+    min-width: 0;
+    margin: 0;
+    padding-left: 1mm;
+    font-size: 0.58rem;
+    line-height: 1.15;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+.paper-preview[data-layout="operatives-datacards"]
+  .datacards-layout
+  :is(.preview-subsection > h3, .preview-weapon h4) {
+  font-size: 0.72rem;
+}
+
+.paper-preview[data-layout="operatives-datacards"]
+  .datacards-layout
+  :is(
+    .preview-text,
+    .preview-timing,
+    .preview-restrictions,
+    .preview-field dd
+  ) {
+  margin-top: 1mm;
+  font-size: 0.65rem;
+  line-height: 1.25;
+}
+@media print {
+  .paper-preview[data-layout="operatives-datacards"] {
+    padding: 8mm;
+  }
+
+  .paper-preview[data-layout="operatives-datacards"]
+    .datacards-layout
+    .preview-operative {
+    break-inside: avoid;
+  }
+}
